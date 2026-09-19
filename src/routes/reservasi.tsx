@@ -99,7 +99,7 @@ function ReservasiPage() {
             <img src={logoAsset.url} alt="Logo Vila Nirwana Bandungan" className="size-9 rounded-full" />
             <span className="font-display text-lg text-foreground">Vila Nirwana</span>
           </Link>
-          <Button asChild variant="ghost" size="sm">
+          <Button asChild variant="ghost">
             <Link to="/"><ArrowLeft className="size-4" /> Beranda</Link>
           </Button>
         </div>

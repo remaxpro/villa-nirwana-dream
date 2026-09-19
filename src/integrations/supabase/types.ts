@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      reservations: {
+        Row: {
+          catatan: string | null
+          check_in: string
+          created_at: string
+          durasi: number
+          fasilitas: string[]
+          id: string
+          kamar: string | null
+          nama: string
+          status: string
+          tamu: string
+        }
+        Insert: {
+          catatan?: string | null
+          check_in: string
+          created_at?: string
+          durasi?: number
+          fasilitas?: string[]
+          id?: string
+          kamar?: string | null
+          nama: string
+          status?: string
+          tamu: string
+        }
+        Update: {
+          catatan?: string | null
+          check_in?: string
+          created_at?: string
+          durasi?: number
+          fasilitas?: string[]
+          id?: string
+          kamar?: string | null
+          nama?: string
+          status?: string
+          tamu?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

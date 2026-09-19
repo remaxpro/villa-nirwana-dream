@@ -6,6 +6,7 @@ import {
   BedDouble,
   CalendarDays,
   ChefHat,
+  Loader2,
   MessageCircle,
   Mountain,
   Navigation,
@@ -13,29 +14,37 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { rooms, rupiah, waLink } from "@/data/vila";
 import logoAsset from "@/assets/vila-nirwana-logo.png.asset.json";
-
-const WA_NUMBER = "6283116712967";
 
 const facilityOptions = [
   { id: "kamar", icon: BedDouble, label: "Kamar Tidur Luas" },
-  { id: "dapur", icon: ChefHat, label: "Dapur Lengkap" },
+  { id: "dapur", icon: ChefHat, label: "Dapur & Ruang Makan" },
   { id: "gathering", icon: UsersRound, label: "Area Gathering" },
-  { id: "view", icon: Mountain, label: "View Pegunungan" },
-  { id: "lokasi", icon: Navigation, label: "Info Lokasi & Akses" },
-  { id: "privat", icon: Sparkles, label: "Suasana Privat" },
+  { id: "view", icon: Mountain, label: "Taman & View Pegunungan" },
+  { id: "lokasi", icon: Navigation, label: "Parkir & Akses Lokasi" },
+  { id: "privat", icon: Sparkles, label: "Sewa Seluruh Vila" },
 ];
 
 export const Route = createFileRoute("/reservasi")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    kamar: typeof search.kamar === "string" ? search.kamar : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "Reservasi — Vila Nirwana Bandungan" },
-      { name: "description", content: "Isi formulir reservasi Vila Nirwana Bandungan dan kirim langsung ke WhatsApp kami untuk konfirmasi ketersediaan." },
+      { title: "Reservasi Vila Nirwana Bandungan | Booking Staycation Semarang" },
+      {
+        name: "description",
+        content:
+          "Formulir reservasi Vila Nirwana Bandungan: pilih kamar, tanggal, durasi, dan jumlah tamu. Reservasi tercatat otomatis dan langsung terkirim ke WhatsApp kami.",
+      },
       { property: "og:title", content: "Reservasi — Vila Nirwana Bandungan" },
-      { property: "og:description", content: "Rencanakan staycation Anda: pilih tanggal, durasi, jumlah tamu, dan fasilitas, lalu kirim via WhatsApp." },
+      { property: "og:description", content: "Pilih kamar, tanggal, durasi, dan jumlah tamu, lalu kirim reservasi Anda." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [{ rel: "canonical", href: "/reservasi" }],
   }),
   component: ReservasiPage,
 });
@@ -44,17 +53,25 @@ const inputClass =
   "w-full rounded-md border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
 
 function ReservasiPage() {
+  const { kamar: kamarAwal } = Route.useSearch();
   const [nama, setNama] = useState("");
   const [tanggal, setTanggal] = useState("");
   const [durasi, setDurasi] = useState("1");
   const [tamu, setTamu] = useState("2");
+  const [kamar, setKamar] = useState(kamarAwal && rooms.some((r) => r.id === kamarAwal) ? kamarAwal : "semua");
+  const [catatan, setCatatan] = useState("");
   const [fasilitas, setFasilitas] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sukses, setSukses] = useState(false);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   const toggleFasilitas = (id: string) =>
     setFasilitas((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+
+  const kamarLabel =
+    kamar === "semua" ? "Sewa seluruh vila / belum menentukan" : rooms.find((r) => r.id === kamar)?.name ?? kamar;
 
   const tanggalLabel = tanggal
     ? new Date(`${tanggal}T00:00:00`).toLocaleDateString("id-ID", {
@@ -65,16 +82,34 @@ function ReservasiPage() {
       })
     : "";
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nama.trim()) return setError("Mohon isi nama Anda terlebih dahulu.");
     if (!tanggal) return setError("Mohon pilih tanggal check-in.");
     setError("");
+    setLoading(true);
 
     const fasilitasLabel =
       fasilitas.length > 0
         ? fasilitas.map((id) => facilityOptions.find((f) => f.id === id)?.label).filter(Boolean).join(", ")
         : "Semua fasilitas standar";
+
+    const { error: dbError } = await supabase.from("reservations").insert({
+      nama: nama.trim(),
+      check_in: tanggal,
+      durasi: Number(durasi),
+      tamu,
+      kamar: kamarLabel,
+      fasilitas,
+      catatan: catatan.trim() || null,
+    });
+
+    setLoading(false);
+
+    if (dbError) {
+      setError("Reservasi belum tersimpan. Silakan coba lagi atau hubungi kami langsung via WhatsApp.");
+      return;
+    }
 
     const pesan = [
       "Halo Vila Nirwana Bandungan, saya ingin melakukan reservasi.",
@@ -83,12 +118,15 @@ function ReservasiPage() {
       `Tanggal check-in: ${tanggalLabel}`,
       `Durasi menginap: ${durasi} malam`,
       `Jumlah tamu: ${tamu} orang`,
+      `Pilihan kamar: ${kamarLabel}`,
       `Fasilitas yang diminati: ${fasilitasLabel}`,
+      ...(catatan.trim() ? [`Catatan: ${catatan.trim()}`] : []),
       "",
       "Mohon info ketersediaan dan detail harganya. Terima kasih.",
     ].join("\n");
 
-    window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(pesan)}`, "_blank", "noreferrer");
+    setSukses(true);
+    window.open(waLink(pesan), "_blank", "noreferrer");
   };
 
   return (
@@ -99,9 +137,10 @@ function ReservasiPage() {
             <img src={logoAsset.url} alt="Logo Vila Nirwana Bandungan" className="size-9 rounded-full" />
             <span className="font-display text-lg text-foreground">Vila Nirwana</span>
           </Link>
-          <Button asChild variant="ghost">
-            <Link to="/"><ArrowLeft className="size-4" /> Beranda</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost"><Link to="/kamar"><BedDouble className="size-4" /> Kamar</Link></Button>
+            <Button asChild variant="ghost"><Link to="/"><ArrowLeft className="size-4" /> Beranda</Link></Button>
+          </div>
         </div>
       </header>
 
@@ -110,8 +149,18 @@ function ReservasiPage() {
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-primary">Formulir reservasi</p>
           <h1 className="text-4xl leading-tight sm:text-5xl">Rencanakan menginap Anda dalam satu langkah.</h1>
           <p className="mt-4 max-w-xl leading-7 text-muted-foreground">
-            Isi detail rencana Anda di bawah ini. Setelah dikirim, pesan akan otomatis tersusun rapi dan terbuka di WhatsApp kami untuk konfirmasi ketersediaan.
+            Isi detail rencana Anda di bawah ini. Reservasi akan tercatat pada sistem kami dan pesan ringkasannya langsung
+            terbuka di WhatsApp untuk konfirmasi ketersediaan.
           </p>
+
+          {sukses && (
+            <div role="status" className="mt-8 rounded-md border border-primary/25 bg-secondary px-5 py-4 text-sm leading-6">
+              <p className="font-semibold text-foreground">Reservasi Anda sudah tercatat.</p>
+              <p className="mt-1 text-muted-foreground">
+                Jika jendela WhatsApp tidak terbuka otomatis, gunakan tombol di bawah untuk mengirim ulang ringkasannya.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="mt-10 rounded-lg border border-border bg-card p-6 shadow-soft sm:p-9" noValidate>
             <div className="grid gap-6 sm:grid-cols-2">
@@ -153,7 +202,7 @@ function ReservasiPage() {
                 </select>
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
                 <label htmlFor="tamu" className="mb-2 flex items-center gap-2 text-sm font-semibold">
                   <UsersRound className="size-4 text-primary" /> Jumlah tamu
                 </label>
@@ -162,6 +211,18 @@ function ReservasiPage() {
                     <option key={n} value={n}>{n} orang</option>
                   ))}
                   <option value="20+">Lebih dari 20 orang (rombongan)</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="kamar" className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                  <BedDouble className="size-4 text-primary" /> Pilihan kamar
+                </label>
+                <select id="kamar" value={kamar} onChange={(e) => setKamar(e.target.value)} className={inputClass}>
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>{room.name} — {rupiah(room.price)}/malam</option>
+                  ))}
+                  <option value="semua">Sewa seluruh vila / belum menentukan</option>
                 </select>
               </div>
 
@@ -193,6 +254,19 @@ function ReservasiPage() {
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">Opsional — kosongkan jika ingin menanyakan semua fasilitas standar.</p>
               </fieldset>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="catatan" className="mb-2 block text-sm font-semibold">Catatan tambahan (opsional)</label>
+                <textarea
+                  id="catatan"
+                  value={catatan}
+                  onChange={(e) => setCatatan(e.target.value)}
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Contoh: butuh extra bed, rencana acara gathering kantor, perkiraan jam tiba."
+                  className={inputClass}
+                />
+              </div>
             </div>
 
             {error && (
@@ -201,11 +275,13 @@ function ReservasiPage() {
               </p>
             )}
 
-            <Button type="submit" variant="gold" size="lg" className="mt-8 w-full">
-              <MessageCircle className="size-5" /> Kirim Reservasi via WhatsApp <ArrowRight className="size-4" />
+            <Button type="submit" variant="gold" size="lg" className="mt-8 w-full" disabled={loading}>
+              {loading ? <Loader2 className="size-5 animate-spin" /> : <MessageCircle className="size-5" />}
+              {loading ? "Mengirim reservasi..." : "Kirim Reservasi via WhatsApp"}
+              {!loading && <ArrowRight className="size-4" />}
             </Button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Pesan akan terbuka di WhatsApp dengan detail yang sudah tersusun otomatis.
+              Data reservasi tersimpan aman di sistem kami, lalu ringkasannya terbuka otomatis di WhatsApp.
             </p>
           </form>
         </div>

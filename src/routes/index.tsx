@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   ArrowRight,
   BedDouble,
@@ -71,7 +71,7 @@ function Index() {
             <a href="#lokasi" className="transition-colors hover:text-highlight">Lokasi</a>
           </nav>
           <Button asChild variant="gold" className="min-h-9 px-4 text-xs sm:text-sm">
-            <a href={whatsappUrl} target="_blank" rel="noreferrer"><MessageCircle className="size-4" /> Reservasi</a>
+            <Link to="/reservasi"><MessageCircle className="size-4" /> Reservasi</Link>
           </Button>
         </div>
       </header>
@@ -92,7 +92,7 @@ function Index() {
               Ruang hangat untuk beristirahat, berkumpul, dan menciptakan cerita yang ingin Anda kenang lebih lama.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button asChild variant="gold" size="lg"><a href={whatsappUrl} target="_blank" rel="noreferrer"><MessageCircle className="size-5" /> Cek Ketersediaan <ArrowRight className="size-4" /></a></Button>
+              <Button asChild variant="gold" size="lg"><Link to="/reservasi"><MessageCircle className="size-5" /> Reservasi Sekarang <ArrowRight className="size-4" /></Link></Button>
               <Button asChild size="lg" className="border border-primary-foreground/35 bg-primary-foreground/10 text-primary-foreground shadow-none hover:bg-primary-foreground/20">
                 <a href="#fasilitas">Jelajahi Vila</a>
               </Button>
